@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Camera, Upload, Loader2, RotateCw, X } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./ui/use-toast";
 import { Card } from "./ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 export const PhotoDiagnosis = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,6 +19,9 @@ export const PhotoDiagnosis = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [analysis, setAnalysis] = useState<string>("");
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
