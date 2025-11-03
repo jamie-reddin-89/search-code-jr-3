@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { CONTACT_EMAIL } from '@/lib/config';
 import { useToast } from "@/hooks/use-toast";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
