@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import * as React from "react";
+const { useState } = React;
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
