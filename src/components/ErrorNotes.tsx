@@ -6,6 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
 import { Trash2, Plus } from "lucide-react";
 
+function formatError(error: any): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  const message = (error as any)?.message ?? '';
+  const code = (error as any)?.code ?? '';
+  return message || code || 'An unknown error occurred';
+}
+
 interface ErrorNotesProps {
   systemName: string;
   errorCode: string;
@@ -39,7 +51,9 @@ export function ErrorNotes({ systemName, errorCode, userId }: ErrorNotesProps) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching notes:", error);
+      const errorMsg = formatError(error);
+      console.error("Error fetching notes:", errorMsg, error);
+      toast.error(`Failed to load notes: ${errorMsg}`);
     } else {
       setNotes(data || []);
     }
@@ -57,8 +71,9 @@ export function ErrorNotes({ systemName, errorCode, userId }: ErrorNotesProps) {
     });
 
     if (error) {
-      toast.error("Failed to add note");
-      console.error(error);
+      const errorMsg = formatError(error);
+      toast.error(`Failed to add note: ${errorMsg}`);
+      console.error("Error adding note:", errorMsg, error);
     } else {
       toast.success("Note added");
       setNewNote("");
@@ -75,7 +90,9 @@ export function ErrorNotes({ systemName, errorCode, userId }: ErrorNotesProps) {
       .eq("user_id", userId);
 
     if (error) {
-      toast.error("Failed to delete note");
+      const errorMsg = formatError(error);
+      toast.error(`Failed to delete note: ${errorMsg}`);
+      console.error("Error deleting note:", errorMsg, error);
     } else {
       toast.success("Note deleted");
       fetchNotes();

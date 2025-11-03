@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Camera, Upload, Loader2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -9,8 +9,9 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "./ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 export const PhotoDiagnosis = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,6 +19,9 @@ export const PhotoDiagnosis = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [analysis, setAnalysis] = useState<string>("");
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,9 +31,59 @@ export const PhotoDiagnosis = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result as string);
+        setCameraActive(false);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setCameraActive(true);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast({
+        title: "Camera access denied",
+        description: "Please check camera permissions",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach((track) => track.stop());
+      setCameraActive(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const context = canvasRef.current.getContext("2d");
+    if (!context) return;
+
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+    context.drawImage(videoRef.current, 0, 0);
+
+    canvasRef.current.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `photo_${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        setSelectedFile(file);
+        setPreview(canvasRef.current?.toDataURL() || "");
+        stopCamera();
+      }
+    }, "image/jpeg", 0.9);
   };
 
   const analyzePhoto = async () => {
@@ -63,30 +117,41 @@ export const PhotoDiagnosis = () => {
       reader.onloadend = async () => {
         const base64Image = reader.result as string;
 
-        // Call edge function for AI analysis
-        const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
-          "photo-diagnosis",
-          {
-            body: { imageBase64: base64Image },
-          }
-        );
+        try {
+          // Call edge function for AI analysis
+          const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
+            "photo-diagnosis",
+            {
+              body: { imageBase64: base64Image },
+            }
+          );
 
-        if (analysisError) throw analysisError;
+          if (analysisError) throw analysisError;
 
-        const aiAnalysis = analysisData?.analysis || "Unable to analyze the image";
-        setAnalysis(aiAnalysis);
+          const aiAnalysis = analysisData?.analysis || "Unable to analyze the image";
+          setAnalysis(aiAnalysis);
 
-        // Save to database
-        await supabase.from("diagnostic_photos").insert({
-          user_id: user.id,
-          storage_path: fileName,
-          ai_analysis: aiAnalysis,
-        });
+          // Save to database
+          await supabase.from("diagnostic_photos").insert({
+            user_id: user.id,
+            storage_path: fileName,
+            ai_analysis: aiAnalysis,
+          });
 
-        toast({
-          title: "Analysis complete",
-          description: "Photo has been analyzed successfully",
-        });
+          toast({
+            title: "Analysis complete",
+            description: "Photo has been analyzed successfully",
+          });
+        } catch (error) {
+          console.error("Error analyzing photo:", error);
+          toast({
+            title: "Analysis failed",
+            description: "Could not analyze the photo",
+            variant: "destructive",
+          });
+        }
+
+        setIsAnalyzing(false);
       };
     } catch (error) {
       console.error("Error analyzing photo:", error);
@@ -95,9 +160,8 @@ export const PhotoDiagnosis = () => {
         description: "Could not analyze the photo",
         variant: "destructive",
       });
+      setIsAnalyzing(false);
     }
-
-    setIsAnalyzing(false);
   };
 
   return (
@@ -107,68 +171,124 @@ export const PhotoDiagnosis = () => {
           <Camera className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Photo Diagnosis</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="border-2 border-dashed rounded-lg p-8 text-center">
-            {preview ? (
-              <img
-                src={preview}
-                alt="Preview"
-                className="max-h-64 mx-auto rounded"
-              />
-            ) : (
-              <div className="space-y-2">
-                <Camera className="h-12 w-12 mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Upload a photo of the equipment
-                </p>
-              </div>
+        {!analysis && (
+          <>
+            <Tabs defaultValue={cameraActive ? "camera" : "upload"} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="camera">Camera</TabsTrigger>
+                <TabsTrigger value="upload">Upload</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="camera" className="space-y-4">
+                {!cameraActive ? (
+                  <Button onClick={startCamera} className="w-full">
+                    <Camera className="h-4 w-4 mr-2" />
+                    Start Camera
+                  </Button>
+                ) : (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full rounded-lg bg-black"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={stopCamera}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button onClick={capturePhoto} className="flex-1">
+                        <Camera className="h-4 w-4 mr-2" />
+                        Capture
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="upload" className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  {preview && !cameraActive ? (
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="max-h-64 mx-auto rounded"
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Upload a photo of the equipment
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => document.getElementById("photo-input")?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Select Photo
+                </Button>
+                <input
+                  id="photo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </TabsContent>
+            </Tabs>
+
+            {preview && (
+              <Button
+                onClick={analyzePhoto}
+                disabled={!selectedFile || isAnalyzing}
+                className="w-full"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  "Analyze Photo"
+                )}
+              </Button>
             )}
-          </div>
+          </>
+        )}
 
-          <div className="flex gap-2">
+        {analysis && (
+          <Card className="p-4">
+            <h3 className="font-semibold mb-2">AI Analysis:</h3>
+            <p className="text-sm whitespace-pre-wrap">{analysis}</p>
             <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => document.getElementById("photo-input")?.click()}
+              onClick={() => {
+                setAnalysis("");
+                setPreview("");
+                setSelectedFile(null);
+              }}
+              className="w-full mt-4"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Select Photo
+              Start New Diagnosis
             </Button>
-            <input
-              id="photo-input"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button
-              onClick={analyzePhoto}
-              disabled={!selectedFile || isAnalyzing}
-              className="flex-1"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                "Analyze Photo"
-              )}
-            </Button>
-          </div>
+          </Card>
+        )}
 
-          {analysis && (
-            <Card className="p-4">
-              <h3 className="font-semibold mb-2">AI Analysis:</h3>
-              <p className="text-sm whitespace-pre-wrap">{analysis}</p>
-            </Card>
-          )}
-        </div>
+        <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
     </Dialog>
   );

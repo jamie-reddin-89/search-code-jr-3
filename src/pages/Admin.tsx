@@ -85,8 +85,14 @@ export default function Admin() {
       const allDevices = await getAllDevices();
       setDevices(allDevices);
     } catch (error: any) {
-      console.error("Error loading devices:", error?.message ?? JSON.stringify(error, Object.getOwnPropertyNames(error)), error);
-      toast({ title: "Error loading devices", description: error?.message ?? "An unexpected error occurred", variant: "destructive" });
+      const errorMessage = error?.message ?? "An unexpected error occurred";
+      console.error("Error loading devices:", errorMessage, error);
+
+      toast({
+        title: "Error Loading Devices",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setDevicesLoading(false);
     }
