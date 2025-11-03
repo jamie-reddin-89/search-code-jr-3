@@ -42,32 +42,37 @@ const Index = () => {
         </div>
 
         <nav className="button-container">
-          <Link
-            to="/favorites"
-            className="nav-button flex items-center justify-center gap-2"
-          >
-            <Star size={20} />
-            My Favorites
-          </Link>
+          <Tooltip content="View favorites">
+            <Link
+              to="/favorites"
+              className="nav-button flex items-center justify-center gap-2"
+            >
+              <Star size={20} />
+              My Favorites
+            </Link>
+          </Tooltip>
 
           {buttonNames.map((name, index) => (
-            <Link
-              key={index}
-              to={`/${name.toLowerCase().replace(/\s+/g, "-")}`}
-              className="nav-button"
-            >
-              {name}
-            </Link>
+            <Tooltip key={index} content={`Open ${name} page`}>
+              <Link
+                to={`/${name.toLowerCase().replace(/\s+/g, "-")}`}
+                className="nav-button"
+              >
+                {name}
+              </Link>
+            </Tooltip>
           ))}
 
           {isAdmin && (
-            <Link
-              to="/admin"
-              className="nav-button flex items-center justify-center gap-2 bg-primary/10 border-primary"
-            >
-              <Shield size={20} />
-              Admin Dashboard
-            </Link>
+            <Tooltip content="Open admin dashboard">
+              <Link
+                to="/admin"
+                className="nav-button flex items-center justify-center gap-2 bg-primary/10 border-primary"
+              >
+                <Shield size={20} />
+                Admin Dashboard
+              </Link>
+            </Tooltip>
           )}
         </nav>
       </main>
