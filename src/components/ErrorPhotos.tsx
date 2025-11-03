@@ -6,6 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
 import { Trash2, Upload, Image as ImageIcon } from "lucide-react";
 
+function formatError(error: any): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  const message = (error as any)?.message ?? '';
+  const code = (error as any)?.code ?? '';
+  return message || code || 'An unknown error occurred';
+}
+
 interface ErrorPhotosProps {
   systemName: string;
   errorCode: string;
@@ -39,7 +51,9 @@ export function ErrorPhotos({ systemName, errorCode, userId }: ErrorPhotosProps)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching photos:", error);
+      const errorMsg = formatError(error);
+      console.error("Error fetching photos:", errorMsg, error);
+      toast.error(`Failed to load photos: ${errorMsg}`);
     } else {
       setPhotos(data || []);
     }
@@ -65,8 +79,9 @@ export function ErrorPhotos({ systemName, errorCode, userId }: ErrorPhotosProps)
       .upload(fileName, file);
 
     if (uploadError) {
-      toast.error("Failed to upload photo");
-      console.error(uploadError);
+      const errorMsg = formatError(uploadError);
+      toast.error(`Failed to upload photo: ${errorMsg}`);
+      console.error("Error uploading photo:", errorMsg, uploadError);
       setUploading(false);
       return;
     }
@@ -79,8 +94,9 @@ export function ErrorPhotos({ systemName, errorCode, userId }: ErrorPhotosProps)
     });
 
     if (dbError) {
-      toast.error("Failed to save photo record");
-      console.error(dbError);
+      const errorMsg = formatError(dbError);
+      toast.error(`Failed to save photo: ${errorMsg}`);
+      console.error("Error saving photo record:", errorMsg, dbError);
     } else {
       toast.success("Photo uploaded");
       fetchPhotos();
@@ -96,7 +112,9 @@ export function ErrorPhotos({ systemName, errorCode, userId }: ErrorPhotosProps)
       .remove([photo.storage_path]);
 
     if (storageError) {
-      toast.error("Failed to delete photo from storage");
+      const errorMsg = formatError(storageError);
+      toast.error(`Failed to delete photo: ${errorMsg}`);
+      console.error("Error deleting photo from storage:", errorMsg, storageError);
       return;
     }
 
@@ -107,7 +125,9 @@ export function ErrorPhotos({ systemName, errorCode, userId }: ErrorPhotosProps)
       .eq("user_id", userId);
 
     if (dbError) {
-      toast.error("Failed to delete photo record");
+      const errorMsg = formatError(dbError);
+      toast.error(`Failed to delete photo: ${errorMsg}`);
+      console.error("Error deleting photo record:", errorMsg, dbError);
     } else {
       toast.success("Photo deleted");
       fetchPhotos();
