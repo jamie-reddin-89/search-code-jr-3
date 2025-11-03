@@ -1,5 +1,4 @@
-import * as React from "react";
-const { useEffect, useState } = React;
+import { useEffect, useState } from "react";
 import { Settings as SettingsIcon, Info } from "lucide-react";
 import { Button } from "./ui/button";
 import {
