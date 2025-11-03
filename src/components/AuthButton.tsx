@@ -103,6 +103,18 @@ export function AuthButton() {
   }
 
   if (user) {
+    if (isAdmin) {
+      return (
+        <Button
+          onClick={handleSignOut}
+          className="bg-yellow-500 hover:bg-yellow-600 text-black"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Admin
+        </Button>
+      );
+    }
+
     return (
       <Button variant="outline" onClick={handleSignOut}>
         <LogOut className="mr-2 h-4 w-4" />
